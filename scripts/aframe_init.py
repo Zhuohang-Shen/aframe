@@ -116,14 +116,13 @@ def create_online_runfile(path: Path):
     cmd += "--env AMPLFI_WEIGHTS=$AMPLFI_WEIGHTS "
     cmd += "--env BEARER_TOKEN_FILE=$BEARER_TOKEN_FILE "
     cmd += "--env SCITOKEN_FILE=$SCITOKEN_FILE "
-    cmd += "$AFRAME_CONTAINER/online.sif /opt/env/bin/online "
+    cmd += "$AFRAME_CONTAINER_ROOT /opt/env/bin/online "
     cmd += "--config $config 2>> monitoring.log"
 
     monitor_cmd = "apptainer run "
     monitor_cmd += f" --bind {path} "
-    monitor_cmd += "$AFRAME_CONTAINER/online.sif /opt/env/bin/monitor "
-    monitor_cmd += f"--run_dir {path} --out_dir $MONITOR_OUTDIR "
-    monitor_cmd += ">> summary_pages.log 2>&1 &"
+    monitor_cmd += "$AFRAME_CONTAINER_ROOT /opt/env/bin/monitor "
+    monitor_cmd += f"--run_dir {path} --out_dir $MONITOR_OUTDIR &"
 
     content = f"""
     #!/bin/bash
@@ -153,7 +152,7 @@ def create_online_runfile(path: Path):
 
     # trained model weights
     export AMPLFI_HL_WEIGHTS=$RUN_DIR/models/amplfi-hl.ckpt
-    export AMPLFI_HLV_WEIGHTS=$RUN_DIR/models/amplfi-hl.ckpt
+    export AMPLFI_HLV_WEIGHTS=$RUN_DIR/models/amplfi-hlv.ckpt
     export AFRAME_WEIGHTS=$RUN_DIR/models/aframe.pt
 
     # file containing timeslide events detected
