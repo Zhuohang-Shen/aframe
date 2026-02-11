@@ -46,7 +46,9 @@ def transpose(d: dict[str, list]):
     Returns:
         List of dictionaries, one per row of input data.
     """
-    return [dict(zip(d, col)) for col in zip(*d.values())]
+    return [
+        dict(zip(d, col, strict=True)) for col in zip(*d.values(), strict=True)
+    ]
 
 
 @dataclass
@@ -551,7 +553,7 @@ class _WaveformGenerator:
         stacked = np.stack([hp.data, hc.data])
         stacked = self.align_waveforms(stacked, t_final)
 
-        unstacked = dict(zip(["plus", "cross"], stacked))
+        unstacked = dict(zip(["plus", "cross"], stacked, strict=True))
 
         return unstacked
 
@@ -643,7 +645,7 @@ class WaveformPolarizationSet(InjectionMetadata, BilbyParameterSet):
                     polarizations[key][i] = value
         else:
             futures = ex.map(waveform_generator, param_list)
-            idx_map = dict(zip(futures, len(futures)))
+            idx_map = dict(zip(futures, len(futures), strict=True))
             for f in as_completed(futures):
                 i = idx_map.pop(f)
                 polars = f.result()

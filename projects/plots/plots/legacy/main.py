@@ -244,7 +244,9 @@ def main(
             fill_alpha=0.4,
         )
 
-        for pipeline, color in zip(gwtc3_sv.keys(), tools.palette[1:]):
+        for pipeline, color in zip(
+            gwtc3_sv.keys(), tools.palette[1:], strict=False
+        ):
             m1, m2 = mass_combos[i]
             mass_key = f"{m1}-{m2}"
             sv = gwtc3_sv[pipeline][mass_key]

@@ -22,7 +22,9 @@ def gates_to_veto_segments(path: Path):
     vetos = np.array(
         [
             [center - window - taper, center + window + taper]
-            for center, window, taper in zip(centers, windows, tapers)
+            for center, window, taper in zip(
+                centers, windows, tapers, strict=True
+            )
         ]
     )
 

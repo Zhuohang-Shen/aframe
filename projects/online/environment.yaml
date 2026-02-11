@@ -3,9 +3,9 @@ channels:
   - conda-forge
 dependencies:
   # python/env dependencies
-  - python=3.11
+  - python>=3.11,<3.13
   - pip
-  - uv=0.6.10
+  - uv
   - jsonargparse
   - scipy
   - h5py

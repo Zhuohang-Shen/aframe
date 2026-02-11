@@ -29,7 +29,7 @@ def get_log_files(log_dir: Path, start_time: float) -> list:
     ]
     relevant_log_files = [
         f
-        for f, dt in zip(all_log_files, modified_utc_datetimes)
+        for f, dt in zip(all_log_files, modified_utc_datetimes, strict=True)
         if dt >= start_time
     ]
     return sorted(relevant_log_files)

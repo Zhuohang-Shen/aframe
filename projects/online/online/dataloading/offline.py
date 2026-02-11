@@ -144,7 +144,10 @@ class OfflineFrameFileLoader:
             state = []
 
             for ifo, strain_channel, state_channel in zip(
-                self.ifos, self.strain_channels, self.state_channels
+                self.ifos,
+                self.strain_channels,
+                self.state_channels,
+                strict=True,
             ):
                 ifo_strain, ifo_state = self.read_data(
                     ifo, strain_channel, state_channel, chunk_start, chunk_end

@@ -236,7 +236,7 @@ class S4Model(nn.Module):
 
         x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
         for layer, norm, dropout in zip(
-            self.s4_layers, self.norms, self.dropouts
+            self.s4_layers, self.norms, self.dropouts, strict=True
         ):
             # Each iteration of this loop will map
             # (B, d_model, L) -> (B, d_model, L)

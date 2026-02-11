@@ -48,6 +48,6 @@ class DeployTask(law.Task):
         waveforms_per_branch, remainder = divmod(
             self.num_signals, self.num_jobs
         )
-        branches = {i: waveforms_per_branch for i in range(self.num_jobs)}
+        branches = dict.fromkeys(range(self.num_jobs), waveforms_per_branch)
         branches[0] += remainder
         return branches

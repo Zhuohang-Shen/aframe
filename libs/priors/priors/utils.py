@@ -45,4 +45,6 @@ def mass_constraints(samples):
 
 def transpose(d: Dict[str, List]):
     """Turn a dict of lists into a list of dicts"""
-    return [dict(zip(d, col)) for col in zip(*d.values())]
+    return [
+        dict(zip(d, col, strict=True)) for col in zip(*d.values(), strict=True)
+    ]

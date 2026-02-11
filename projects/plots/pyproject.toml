@@ -3,12 +3,12 @@ name = "plots"
 version = "0.0.1"
 description = "Aframe performance summary plots"
 authors = [{ name = "Alec Gunny" }]
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "bokeh~=3.0",
     "scipy~=1.7",
     "h5py~=3.5",
-    "gwpy>=3.0.8,<4",
+    "gwpy~=3.0.8",
     "ledger",
     "priors",
     "utils",

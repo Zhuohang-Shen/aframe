@@ -126,7 +126,9 @@ class SaveAugmentedBatch(Callback):
                 with s3.open(f"{save_dir}/val_batch.hdf5", "wb") as s3_file:
                     with io.BytesIO() as f:
                         with h5py.File(f, "w") as h5file:
-                            for i, (bg, inj) in enumerate(zip(X_bg, X_inj)):
+                            for i, (bg, inj) in enumerate(
+                                zip(X_bg, X_inj, strict=True)
+                            ):
                                 h5file[f"X_bg_{i}"] = bg.cpu().numpy()
                                 h5file[f"X_inj_{i}"] = inj.cpu().numpy()
                         s3_file.write(f.getvalue())
@@ -139,7 +141,9 @@ class SaveAugmentedBatch(Callback):
                 with h5py.File(
                     os.path.join(save_dir, "val_batch.hdf5"), "w"
                 ) as f:
-                    for i, (bg, inj) in enumerate(zip(X_bg, X_inj)):
+                    for i, (bg, inj) in enumerate(
+                        zip(X_bg, X_inj, strict=True)
+                    ):
                         f[f"X_bg_{i}"] = bg.cpu().numpy()
                         f[f"X_inj_{i}"] = inj.cpu().numpy()
 

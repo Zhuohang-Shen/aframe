@@ -55,7 +55,9 @@ class TimeSlideAUROC(Metric):
 
     def compute(self):
         foreground, background = [], defaultdict(list)
-        for i, bg, fg in zip(self.shifts, self.background, self.foreground):
+        for i, bg, fg in zip(
+            self.shifts, self.background, self.foreground, strict=True
+        ):
             foreground.append(fg)
             background[i.item()].append(bg)
         foreground = torch.cat(foreground)
@@ -224,7 +226,7 @@ def get_timeslides(
     # create alternating positive and negative
     # shifts until we have enough livetime
     livetime = livetime + 0  # so our inplace ops don't have unintended effects
-    shifts = zip(itertools.count(1, 1), itertools.count(-1, -1))
+    shifts = zip(itertools.count(1, 1), itertools.count(-1, -1), strict=True)
     shifts = itertools.chain.from_iterable(shifts)
     shifts = itertools.takewhile(lambda _: livetime > 0, shifts)
 
