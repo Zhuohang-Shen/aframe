@@ -173,7 +173,9 @@ def ifar_plot(plotsdir: Path, df: pd.DataFrame, tb: float) -> None:
         label="Zero‑lag",
     )
     labels = [r"1,2,3 $\,\sigma$"] + [None, None]
-    for band, alpha, lab in zip(sig_bands[::-1], sigma_alphas[::-1], labels):
+    for band, alpha, lab in zip(
+        sig_bands[::-1], sigma_alphas[::-1], labels, strict=True
+    ):
         plt.fill_between(
             x_pred, band[0], band[1], color="steelblue", alpha=alpha, label=lab
         )

@@ -138,7 +138,7 @@ class EventAnalyzer:
         )
         strain = []
         with h5py.File(fname, "r") as f:
-            for ifo, shift in zip(self.ifos, shifts):
+            for ifo, shift in zip(self.ifos, shifts, strict=True):
                 shift_size = int(shift * self.sample_rate)
                 start_shifted, stop_shifted = (
                     start + shift_size,

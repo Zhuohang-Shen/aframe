@@ -54,7 +54,7 @@ class ZippedDataset(torch.utils.data.IterableDataset):
         return self.minimum or min(lengths)
 
     def __iter__(self):
-        return zip(*self.datasets)
+        return zip(*self.datasets, strict=False)
 
 
 class BaseAframeDataset(pl.LightningDataModule):

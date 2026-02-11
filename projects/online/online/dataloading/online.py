@@ -102,7 +102,7 @@ def data_iterator(
         logging.debug(f"Reading frames from timestamp {t0}")
 
         ready = [True] * len(ifos)
-        for i, (ifo, channel) in enumerate(zip(ifos, channels)):
+        for i, (ifo, channel) in enumerate(zip(ifos, channels, strict=True)):
             prefix = f"{ifo[0]}-{ifo}_{middle}"
             if ifo_suffix is not None:
                 ifo_dir = "_".join([ifo, ifo_suffix])

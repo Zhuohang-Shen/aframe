@@ -311,7 +311,7 @@ def main(
     for p in pipelines:
         logging.info(f"Calculating SV for {p}")
         sv[p], err[p] = {}, {}
-        for (m1, m2), log_dN in zip((mass_combos), log_dNs):
+        for (m1, m2), log_dN in zip((mass_combos), log_dNs, strict=True):
             sv[p][f"{m1}-{m2}"] = np.zeros_like(detection_thresholds)
             err[p][f"{m1}-{m2}"] = np.zeros_like(detection_thresholds)
             for i, thresh in enumerate(tqdm(detection_thresholds)):

@@ -148,7 +148,9 @@ class SensitiveVolumePlot:
 
     def make_plot(self):
         plots = utils.make_grid(self.mass_combos)
-        for i, (p, color) in enumerate(zip(plots, utils.palette)):
+        for i, (p, color) in enumerate(
+            zip(plots, utils.palette, strict=False)
+        ):
             fars = self.fars * SECONDS_PER_YEAR
             p.line(fars, self.svs[i], line_width=1.5, line_color=color)
             utils.plot_err_bands(

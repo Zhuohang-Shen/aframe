@@ -184,7 +184,7 @@ class Sequence:
                 # grab the current batch of updates from the file
                 # and stack it into a 2D array
                 x = []
-                for ifo, shift in zip(self.ifos, self.shifts):
+                for ifo, shift in zip(self.ifos, self.shifts, strict=True):
                     start = shift + i * self.step_size
 
                     # for all but last batch just
