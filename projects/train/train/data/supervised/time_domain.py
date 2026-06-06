@@ -26,6 +26,7 @@ class TimeDomainSupervisedAframeDataset(SupervisedAframeDataset):
         X = self.whitener(X, psds)
         if self.resampler is not None:
             X = self.resampler(X.contiguous())
+        return X
 
     def inject(self, X, waveforms=None):
         X, y, psds = super().inject(X, waveforms)
