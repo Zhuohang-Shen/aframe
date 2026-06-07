@@ -2,6 +2,7 @@ import math
 import torch
 from typing import Literal
 
+import torchaudio
 from train.data.supervised.supervised import SupervisedAframeDataset
 from ml4gw.transforms import Heterodyne
 
@@ -32,6 +33,19 @@ class TimeDomainSupervisedAframeDataset(SupervisedAframeDataset):
         X, y, psds = super().inject(X, waveforms)
         X = self.apply_transforms(X, psds)
         return X, y
+
+    def build_transforms(self):
+        """
+        Override the build_transforms method to initialize the resampler if
+        a model input sample rate is specified.
+        """
+        super().build_transforms()
+        self.resampler = None
+        if self.hparams.model_input_sample_rate is not None:
+            self.resampler = torchaudio.transforms.Resample(
+                orig_freq=int(self.hparams.sample_rate),
+                new_freq=int(self.hparams.model_input_sample_rate),
+            )
 
 
 class HeterodyneTimeDomainSupervisedAframeDataset(SupervisedAframeDataset):
