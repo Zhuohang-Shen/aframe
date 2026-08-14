@@ -1,19 +1,22 @@
 import numpy as np
 
 from ledger.events import EventSet
+from collections.abc import Callable
 
+import torch.nn.functional as F
+import torch
 
 class Postprocessor:
     def __init__(
         self,
         t0: float,
         shifts: list[float],
-        kernel_length: float,
         psd_length: float,
         fduration: float,
         inference_sampling_rate: float,
         integration_window_length: float,
         cluster_window_length: float,
+        **kwargs,
     ) -> None:
         """
         Postprocessor object for converting timeseries
@@ -24,8 +27,6 @@ class Postprocessor:
                 GPS time of the start of the data segment
             shifts:
                 Time shifts to applied to each interferometer
-            kernel_length:
-                Length of the window seen by the network in seconds
             psd_length:
                 Length of the PSD data used in inference in seconds
             fduration:
@@ -44,7 +45,7 @@ class Postprocessor:
         # offset our initial time both by the psd data
         # that we're going to slough off as well as by
         # the filter settle-in and integration time
-        self.t0 = t0 + psd_length - fduration / 2 - kernel_length
+        self.t0 = t0 + psd_length - fduration / 2 - integration_window_length
         self.offset = int(psd_length * inference_sampling_rate)
 
         # convert our window lengths to sample units
@@ -55,7 +56,23 @@ class Postprocessor:
             inference_sampling_rate * cluster_window_length
         )
 
-    def integrate(self, y: np.ndarray) -> np.ndarray:
+    def median_pool(self, x):
+        """
+        Unfolds tensors into views with integration window lengths and computes medians. 
+        """
+        x = torch.tensor(x).unsqueeze(0).unsqueeze(0).unsqueeze(0)
+        x = F.pad(x, (self.integration_window_size-1, 0))
+        x = F.unfold(x, kernel_size=(1, self.integration_window_size-1),
+                stride=(1, 1),
+                padding=(0, 0)
+            )
+        batch_size, _, total_windows = x.shape
+        channels = x.shape[1] // (self.integration_window_size-1)
+        x = x.view(batch_size, channels, (self.integration_window_size-1), total_windows)
+        median_values, _ = torch.median(x, dim=2)
+        return median_values.squeeze(0).squeeze(0).numpy()
+
+    def integrate(self, y: dict[str, np.ndarray]) -> np.ndarray:
         """
         Convolve predictions with boxcar filter
         to get local integration, slicing off of
@@ -67,24 +84,37 @@ class Postprocessor:
         """
         window_size = self.integration_window_size
         window = np.ones((window_size,)) / window_size
-        integrated = np.convolve(y, window, mode="full")
-        return integrated[: -window_size + 1]
+        for key in y.keys():
+            if key == "detection_statistic":
+                integrated = np.convolve(y[key], window, mode="full")
+                y[key] = integrated[: -window_size + 1]
+            else:
+                y[key] = self.median_pool(y[key])
+        return y
 
-    def cluster(self, y, pred_times) -> EventSet:
+    def cluster(self, y) -> EventSet:
         # initial our search index to be in the first
         # half window of the timeseries. Then all we
         # need to know is whether there's a louder event
         # in the half window _after_ it to know that it's
         # the largest within the full window
         window_size = int(self.cluster_window_size // 2)
-        i = np.argmax(y[:window_size])
+        i = np.argmax(y["detection_statistic"][:window_size])
 
-        events, times = [], []
-        while i < len(y):
+        extra_params = list(y.keys())
+        extra_params.remove("detection_statistic")
+        if "pred_times" in extra_params:
+            extra_params.remove("pred_times")
+
+        dataset = {"events": [], "times": []}
+        for key in extra_params:
+            dataset[key] = []
+
+        while i < len(y["detection_statistic"]):
             # check if there are any values in the next half
             # window which are larger than the current index
-            val = y[i]
-            window = y[i + 1 : i + 1 + window_size]
+            val = y["detection_statistic"][i]
+            window = y["detection_statistic"][i + 1 : i + 1 + window_size]
 
             if (val < window).any():
                 # if there is a larger value,
@@ -95,37 +125,117 @@ class Postprocessor:
                 # in the full window around it, so record
                 # the value and reset the index to be the
                 # first value outside the current window
-                events.append(val)
-                times.append(pred_times[i])
+                dataset["events"].append(val)
+                t = self.t0 + i / self.inference_sampling_rate
+                dataset["times"].append(t)
+                for key in extra_params:
+                    dataset[key].append(y[key][i])
+
                 i += window_size + 1
 
         # record all this info and some
         # metadata into a ledger object
-        Tb = len(y) / self.inference_sampling_rate
-        events = np.array(events)
-        times = np.array(times)
+        Tb = len(y["detection_statistic"]) / self.inference_sampling_rate
+        events = np.array(dataset["events"])
+        times = np.array(dataset["times"])
+        extra_params_dict = {key: np.array(dataset[key]) for key in extra_params}
         shifts = np.ones((len(events), len(self.shifts))) * self.shifts
-        return EventSet(events, times, shifts, Tb)
+        return EventSet(events, times, shifts, Tb, extra_params_dict)
 
     def __call__(
-        self, y: np.ndarray | None = None, h: np.ndarray | None = None
-    ) -> EventSet:
+        self, y: dict[str, np.ndarray]) -> EventSet:
         # in the case where we didn't perform
         # injections on this shift
         # just return an empty event set
-        if y is None:
+        if y[next(iter(y))] is None:
             return EventSet()
-        y = y[self.offset :]
 
-        duration = len(y) / self.inference_sampling_rate
+        y = {key: y[key][self.offset :] for key in y.keys()}
+        y = self.integrate(y)
+        y = self.cluster(y)
+        return y
+
+class Merger_Time_Postprocessor(Postprocessor):
+    def __init__(
+        self,
+        kernel_length: float,
+        integration_window_length: float,
+        **kwargs
+    ) -> None:
+        """
+        Postprocessor with heatmap to merger time conversion.
+        """
+        super().__init__(integration_window_length = integration_window_length, **kwargs)
+        self.t0 = self.t0 + integration_window_length - kernel_length
+
+    def cluster(self, y) -> EventSet:
+        # initial our search index to be in the first
+        # half window of the timeseries. Then all we
+        # need to know is whether there's a louder event
+        # in the half window _after_ it to know that it's
+        # the largest within the full window
+        window_size = int(self.cluster_window_size // 2)
+        i = np.argmax(y["detection_statistic"][:window_size])
+
+        extra_params = list(y.keys())
+        extra_params.remove("detection_statistic")
+        if "pred_times" in extra_params:
+            extra_params.remove("pred_times")
+
+        dataset = {"events": [], "times": []}
+        for key in extra_params:
+            dataset[key] = []
+
+        while i < len(y["detection_statistic"]):
+            # check if there are any values in the next half
+            # window which are larger than the current index
+            val = y["detection_statistic"][i]
+            window = y["detection_statistic"][i + 1 : i + 1 + window_size]
+
+            if (val < window).any():
+                # if there is a larger value,
+                # move our index to it
+                i += np.argmax(window) + 1
+            else:
+                # otherwise, this must be the largest value
+                # in the full window around it, so record
+                # the value and reset the index to be the
+                # first value outside the current window
+                dataset["events"].append(val)
+                dataset["times"].append(y["pred_times"][i])
+
+                for key in extra_params:
+                    dataset[key].append(y[key][i])
+
+                i += window_size + 1
+
+        # record all this info and some
+        # metadata into a ledger object
+        Tb = len(y["detection_statistic"]) / self.inference_sampling_rate
+        events = np.array(dataset["events"])
+        times = np.array(dataset["times"])
+        extra_params_dict = {key: np.array(dataset[key]) for key in extra_params}
+        shifts = np.ones((len(events), len(self.shifts))) * self.shifts
+        return EventSet(events, times, shifts, Tb, extra_params_dict)
+
+    def __call__(
+        self, y: dict[str, np.ndarray]) -> EventSet:
+        # in the case where we didn't perform
+        # injections on this shift
+        # just return an empty event set
+        if y[next(iter(y))] is None:
+            return EventSet()
+
+        duration = len(y["detection_statistic"]) / self.inference_sampling_rate
         times = np.arange(
             self.t0, self.t0 + duration, 1 / self.inference_sampling_rate
         )
-        pred_times = np.argmax(h, axis=-1) / h.shape[-1] + times
-        pred_times = pred_times[self.offset :]
+        pred_times = np.argmax(y["heatmap"], axis=-1) / y["heatmap"].shape[-1] + times
+        y["pred_times"] = pred_times
+        _ = y.pop("heatmap")
+
+        y = {key: y[key][self.offset :] for key in y.keys()}
 
         y = self.integrate(y)
-        pred_times = self.integrate(pred_times)
-
-        y = self.cluster(y, pred_times)
+        y = self.cluster(y)
         return y
